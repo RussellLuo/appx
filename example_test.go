@@ -1,13 +1,15 @@
-package appx
+package appx_test
 
 import (
 	"context"
 	"fmt"
+
+	"github.com/RussellLuo/appx"
 )
 
 func Example() {
-	MustRegister(New("a").
-		Init(func(ctx context.Context, apps map[string]*App) (Value, CleanFunc, error) {
+	appx.MustRegister(appx.New("a").
+		Init(func(ctx context.Context, apps map[string]*appx.App) (appx.Value, appx.CleanFunc, error) {
 			fmt.Printf("Initializing app %q, which requires %d app.\n", "a", len(apps))
 			return nil, func() error {
 				fmt.Printf("Doing cleanup for app %q.\n", "a")
@@ -15,8 +17,8 @@ func Example() {
 			}, nil
 		}))
 
-	MustRegister(New("b").
-		Init(func(ctx context.Context, apps map[string]*App) (Value, CleanFunc, error) {
+	appx.MustRegister(appx.New("b").
+		Init(func(ctx context.Context, apps map[string]*appx.App) (appx.Value, appx.CleanFunc, error) {
 			fmt.Printf("Initializing app %q, which requires %d app.\n", "b", len(apps))
 			return nil, func() error {
 				fmt.Printf("Doing cleanup for app %q.\n", "b")
@@ -24,9 +26,9 @@ func Example() {
 			}, nil
 		}))
 
-	MustRegister(New("c").
+	appx.MustRegister(appx.New("c").
 		Require("a").
-		Init(func(ctx context.Context, apps map[string]*App) (Value, CleanFunc, error) {
+		Init(func(ctx context.Context, apps map[string]*appx.App) (appx.Value, appx.CleanFunc, error) {
 			fmt.Printf("Initializing app %q, which requires app %q.\n", "c", apps["a"].Name)
 			return nil, func() error {
 				fmt.Printf("Doing cleanup for app %q.\n", "c")
@@ -34,9 +36,9 @@ func Example() {
 			}, nil
 		}))
 
-	MustRegister(New("d").
+	appx.MustRegister(appx.New("d").
 		Require("a", "b").
-		Init(func(ctx context.Context, apps map[string]*App) (Value, CleanFunc, error) {
+		Init(func(ctx context.Context, apps map[string]*appx.App) (appx.Value, appx.CleanFunc, error) {
 			fmt.Printf("Initializing app %q, which requires app %q and %q.\n", "d", apps["a"].Name, apps["b"].Name)
 			return nil, func() error {
 				fmt.Printf("Doing cleanup for app %q.\n", "d")
@@ -44,11 +46,11 @@ func Example() {
 			}, nil
 		}))
 
-	if err := Install(context.Background()); err != nil {
+	if err := appx.Install(context.Background()); err != nil {
 		fmt.Printf("err: %v\n", err)
 	}
 
-	if err := Uninstall(); err != nil {
+	if err := appx.Uninstall(); err != nil {
 		fmt.Printf("err: %v\n", err)
 	}
 }
