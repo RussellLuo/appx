@@ -130,16 +130,17 @@ func (a *App) Uninstall() (err error) {
 }
 
 // prepareRequiredApps sets the field a.requiredApps of app if it's not set.
-func (a *App) prepareRequiredApps() (err error) {
+func (a *App) prepareRequiredApps() error {
 	if len(a.requiredNames) == len(a.requiredApps) {
 		return nil
 	}
 
 	for name := range a.requiredNames {
-		a.requiredApps[name], err = a.getAppFunc(name)
+		app, err := a.getAppFunc(name)
 		if err != nil {
-			return
+			return err
 		}
+		a.requiredApps[name] = app
 	}
 
 	return nil
