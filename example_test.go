@@ -51,19 +51,15 @@ func Example() {
 		}))
 
 	// Typically located in `func main()` of package main.
+	appx.ErrorHandler(func(err error) {
+		fmt.Printf("err: %v\n", err)
+	})
+
 	if err := appx.Install(context.Background(), "b"); err != nil {
 		fmt.Printf("err: %v\n", err)
 		return
 	}
-	defer func() {
-		if err := appx.Uninstall("a", "b"); err != nil {
-			fmt.Printf("err: %v\n", err)
-		}
-	}()
-
-	appx.ErrorHandler(func(err error) {
-		fmt.Printf("err: %v\n", err)
-	})
+	defer appx.Uninstall()
 
 	startCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
@@ -86,6 +82,6 @@ func Example() {
 	// Everything is running
 	// Stopping app "b"
 	// Stopping app "a"
-	// Doing cleanup for app "a"
 	// Doing cleanup for app "b"
+	// Doing cleanup for app "a"
 }

@@ -9,6 +9,9 @@ var (
 	// registry holds all the registered applications.
 	registry = make(map[string]*App)
 
+	// installed holds all the installed applications, in dependency order.
+	installed []*App
+
 	// lifecycle holds the Start and Stop callbacks of the runnable applications.
 	lifecycle = new(lifecycleImpl)
 
@@ -44,10 +47,18 @@ func MustRegister(app *App) {
 
 // Install installs the applications specified by names, with the given ctx.
 // If no name is specified, all registered applications will be installed.
+//
+// Note that applications will be installed in dependency order.
 func Install(ctx context.Context, names ...string) error {
+	after := func(app *App) {
+		installed = append(installed, app)
+	}
+
 	if len(names) == 0 {
 		for _, app := range registry {
-			if err := app.Install(ctx, lifecycle); err != nil {
+			if err := app.Install(ctx, lifecycle, after); err != nil {
+				// Install failed, roll back.
+				Uninstall()
 				return err
 			}
 		}
@@ -56,9 +67,13 @@ func Install(ctx context.Context, names ...string) error {
 	for _, name := range names {
 		app, err := getApp(name)
 		if err != nil {
+			// Install failed, roll back.
+			Uninstall()
 			return err
 		}
-		if err := app.Install(ctx, lifecycle); err != nil {
+		if err := app.Install(ctx, lifecycle, after); err != nil {
+			// Install failed, roll back.
+			Uninstall()
 			return err
 		}
 	}
@@ -66,28 +81,14 @@ func Install(ctx context.Context, names ...string) error {
 	return nil
 }
 
-// Uninstall uninstalls the applications specified by names.
-// If no name is specified, all registered applications will be uninstalled.
-func Uninstall(names ...string) error {
-	if len(names) == 0 {
-		for _, app := range registry {
-			if err := app.Uninstall(); err != nil {
-				return err
-			}
+// Uninstall uninstalls the applications that has already been installed, in
+// the reverse order of installation.
+func Uninstall() {
+	for i := len(installed); i > 0; i-- {
+		if err := installed[i-1].Uninstall(); err != nil {
+			errorHandler(err)
 		}
 	}
-
-	for _, name := range names {
-		app, err := getApp(name)
-		if err != nil {
-			return err
-		}
-		if err := app.Uninstall(); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func getApp(name string) (*App, error) {

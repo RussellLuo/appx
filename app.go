@@ -75,7 +75,7 @@ func (a *App) Init2(initFunc InitFunc) *App {
 }
 
 // Install does the initialization work for the current application.
-func (a *App) Install(ctx context.Context, lc Lifecycle) (err error) {
+func (a *App) Install(ctx context.Context, lc Lifecycle, after func(*App)) (err error) {
 	switch a.state {
 	case stateInstalled:
 		return nil // Do nothing since the application has already been installed.
@@ -91,7 +91,7 @@ func (a *App) Install(ctx context.Context, lc Lifecycle) (err error) {
 		return err
 	}
 	for _, app := range a.requiredApps {
-		if err = app.Install(ctx, lc); err != nil {
+		if err = app.Install(ctx, lc, after); err != nil {
 			return err
 		}
 	}
@@ -102,6 +102,11 @@ func (a *App) Install(ctx context.Context, lc Lifecycle) (err error) {
 		if err != nil {
 			return err
 		}
+	}
+
+	if after != nil {
+		// Call the hook function after installed, if any.
+		after(a)
 	}
 
 	a.state = stateInstalled
