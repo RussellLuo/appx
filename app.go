@@ -11,11 +11,11 @@ const (
 	stateUninstalled
 )
 
-// InitFunc initializes an application with the given context ctx, and the
-// required applications apps. When successful, It will return a value and
-// a cleanup function that associated with the initialized application.
+// InitFunc initializes an application with the given context ctx, lifecycle lc
+// and the required applications apps. When successful, It will return a value
+// and a cleanup function that associated with the initialized application.
 // Otherwise, it will return an error.
-type InitFunc func(ctx context.Context, apps map[string]*App) (Value, CleanFunc, error)
+type InitFunc func(ctx context.Context, lc Lifecycle, apps map[string]*App) (Value, CleanFunc, error)
 
 // CleanFunc does the cleanup work for an application. It will return an error if fails.
 type CleanFunc func() error
@@ -60,13 +60,22 @@ func (a *App) Require(names ...string) *App {
 }
 
 // Init sets the function used to initialize the current application.
-func (a *App) Init(initFunc InitFunc) *App {
+// Init is deprecated in favor of Init2.
+func (a *App) Init(initFunc func(ctx context.Context, apps map[string]*App) (Value, CleanFunc, error)) *App {
+	a.initFunc = func(ctx context.Context, lc Lifecycle, apps map[string]*App) (Value, CleanFunc, error) {
+		return initFunc(ctx, apps)
+	}
+	return a
+}
+
+// Init2 sets the function used to initialize the current application.
+func (a *App) Init2(initFunc InitFunc) *App {
 	a.initFunc = initFunc
 	return a
 }
 
 // Install does the initialization work for the current application.
-func (a *App) Install(ctx context.Context) (err error) {
+func (a *App) Install(ctx context.Context, lc Lifecycle) (err error) {
 	switch a.state {
 	case stateInstalled:
 		return nil // Do nothing since the application has already been installed.
@@ -82,14 +91,14 @@ func (a *App) Install(ctx context.Context) (err error) {
 		return err
 	}
 	for _, app := range a.requiredApps {
-		if err = app.Install(ctx); err != nil {
+		if err = app.Install(ctx, lc); err != nil {
 			return err
 		}
 	}
 
 	// Finally install the app itself.
 	if a.initFunc != nil {
-		a.Value, a.cleanFunc, err = a.initFunc(ctx, a.requiredApps)
+		a.Value, a.cleanFunc, err = a.initFunc(ctx, lc, a.requiredApps)
 		if err != nil {
 			return err
 		}
