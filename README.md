@@ -12,14 +12,14 @@ $ go get -u github.com/RussellLuo/appx
 
 ## Examples
 
-For basic usage, see [example_test.go](example_test.go).
-
-For advanced usage, see [kok/pkg/appcenter][1].
+- [Basic usage](example_test.go)
+- [HTTP applications][1]
+- [CRON applications][2]
 
 
 ## Documentation
 
-Checkout the [Godoc][2].
+Checkout the [Godoc][3].
 
 
 ## License
@@ -27,5 +27,6 @@ Checkout the [Godoc][2].
 [MIT](LICENSE)
 
 
-[1]: https://github.com/RussellLuo/kok/blob/master/pkg/appcenter/example_test.go
-[2]: https://pkg.go.dev/mod/github.com/RussellLuo/appx
+[1]: https://github.com/RussellLuo/kok/blob/master/pkg/appx/httpapp/example_test.go
+[2]: https://github.com/RussellLuo/kok/blob/master/pkg/appx/cronapp/example_test.go
+[3]: https://pkg.go.dev/mod/github.com/RussellLuo/appx
