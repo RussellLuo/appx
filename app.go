@@ -17,6 +17,8 @@ const (
 // Otherwise, it will return an error.
 type InitFunc func(ctx context.Context, lc Lifecycle, apps map[string]*App) (Value, CleanFunc, error)
 
+type OldInitFunc func(ctx context.Context, apps map[string]*App) (Value, CleanFunc, error)
+
 // CleanFunc does the cleanup work for an application. It will return an error if fails.
 type CleanFunc func() error
 
@@ -61,7 +63,7 @@ func (a *App) Require(names ...string) *App {
 
 // Init sets the function used to initialize the current application.
 // Init is deprecated in favor of Init2.
-func (a *App) Init(initFunc func(ctx context.Context, apps map[string]*App) (Value, CleanFunc, error)) *App {
+func (a *App) Init(initFunc OldInitFunc) *App {
 	a.initFunc = func(ctx context.Context, lc Lifecycle, apps map[string]*App) (Value, CleanFunc, error) {
 		return initFunc(ctx, apps)
 	}
