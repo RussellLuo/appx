@@ -70,8 +70,8 @@ func (a *App) Init(initFunc OldInitFunc) *App {
 	return a
 }
 
-// Init2 sets the function used to initialize the current application.
-func (a *App) Init2(initFunc InitFunc) *App {
+// InitV2 sets the function used to initialize the current application.
+func (a *App) InitV2(initFunc InitFunc) *App {
 	a.initFunc = initFunc
 	return a
 }

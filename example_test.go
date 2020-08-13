@@ -11,7 +11,7 @@ import (
 func Example() {
 	// Typically located in `func init()` of package a.
 	appx.MustRegister(appx.New("a").
-		Init2(func(ctx context.Context, lc appx.Lifecycle, apps map[string]*appx.App) (appx.Value, appx.CleanFunc, error) {
+		InitV2(func(ctx context.Context, lc appx.Lifecycle, apps map[string]*appx.App) (appx.Value, appx.CleanFunc, error) {
 			fmt.Printf("Initializing app %q, which requires %d app\n", "a", len(apps))
 			lc.Append(appx.Hook{
 				OnStart: func(ctx context.Context) error {
@@ -32,7 +32,7 @@ func Example() {
 	// Typically located in `func init()` of package b.
 	appx.MustRegister(appx.New("b").
 		Require("a").
-		Init2(func(ctx context.Context, lc appx.Lifecycle, apps map[string]*appx.App) (appx.Value, appx.CleanFunc, error) {
+		InitV2(func(ctx context.Context, lc appx.Lifecycle, apps map[string]*appx.App) (appx.Value, appx.CleanFunc, error) {
 			fmt.Printf("Initializing app %q, which requires app %q\n", "b", apps["a"].Name)
 			lc.Append(appx.Hook{
 				OnStart: func(ctx context.Context) error {
