@@ -106,22 +106,22 @@ func getApp(name string) (*App, error) {
 //
 // The default timeout for application startup and shutdown is 15s, which can
 // be changed by using SetConfig.
-func Run() error {
+func Run() (os.Signal, error) {
 	startCtx, cancel := context.WithTimeout(context.Background(), config.startTimeout())
 	defer cancel()
 	if err := Start(startCtx); err != nil {
-		return err
+		return nil, err
 	}
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
-	<-c
+	sig := <-c
 
 	stopCtx, cancel := context.WithTimeout(context.Background(), config.stopTimeout())
 	defer cancel()
 	Stop(stopCtx)
 
-	return nil
+	return sig, nil
 }
 
 // Start kicks off all long-running applications, like network servers or

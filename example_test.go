@@ -51,12 +51,6 @@ func Example() {
 		}))
 
 	// Typically located in `func main()` of package main.
-	appx.SetConfig(appx.Config{
-		ErrorHandler: func(err error) {
-			fmt.Printf("err: %v\n", err)
-		},
-	})
-
 	if err := appx.Install(context.Background(), "b"); err != nil {
 		fmt.Printf("err: %v\n", err)
 		return
