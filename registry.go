@@ -3,6 +3,9 @@ package appx
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 var (
@@ -14,9 +17,6 @@ var (
 
 	// lifecycle holds the Start and Stop callbacks of the runnable applications.
 	lifecycle = new(lifecycleImpl)
-
-	// errorHandler is the handler for errors from the Stop and Uninstall phases.
-	errorHandler = func(error) {}
 )
 
 // Register registers the application app into the registry.
@@ -86,7 +86,7 @@ func Install(ctx context.Context, names ...string) error {
 func Uninstall() {
 	for i := len(installed); i > 0; i-- {
 		if err := installed[i-1].Uninstall(); err != nil {
-			errorHandler(err)
+			config.errorHandler()(err)
 		}
 	}
 }
@@ -100,11 +100,28 @@ func getApp(name string) (*App, error) {
 	return app, nil
 }
 
-// ErrorHandler sets the handler for errors from Stop and Uninstall phases.
-func ErrorHandler(f func(error)) {
-	if f != nil {
-		errorHandler = f
+// Run starts all long-running applications, blocks on the signal channel,
+// and then gracefully stops the applications. It is designed as a shortcut
+// of calling Start and Stop for typical usage scenarios.
+//
+// The default timeout for application startup and shutdown is 15s, which can
+// be changed by using SetConfig.
+func Run() error {
+	startCtx, cancel := context.WithTimeout(context.Background(), config.startTimeout())
+	defer cancel()
+	if err := Start(startCtx); err != nil {
+		return err
 	}
+
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+	<-c
+
+	stopCtx, cancel := context.WithTimeout(context.Background(), config.stopTimeout())
+	defer cancel()
+	Stop(stopCtx)
+
+	return nil
 }
 
 // Start kicks off all long-running applications, like network servers or
@@ -131,7 +148,7 @@ func start(ctx context.Context) error {
 
 func stop(ctx context.Context) error {
 	for _, err := range lifecycle.Stop(ctx) {
-		errorHandler(err)
+		config.errorHandler()(err)
 	}
 	return nil
 }
