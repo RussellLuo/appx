@@ -11,6 +11,18 @@ const (
 	stateUninstalled
 )
 
+// Context is a set of context parameters used to initialize an application.
+type Context struct {
+	context.Context
+	App       *App
+	Required  map[string]*App
+	Lifecycle Lifecycle
+}
+
+// InitFuncV2 initializes an application with the given context ctx.
+// It will return an error if fails.
+type InitFuncV2 func(ctx Context) error
+
 // InitFunc initializes an application with the given context ctx, lifecycle lc
 // and the required applications apps. When successful, It will return a value
 // and a cleanup function that associated with the initialized application.
@@ -35,8 +47,9 @@ type App struct {
 	requiredApps  map[string]*App
 	getAppFunc    func(name string) (*App, error) // The function used to find an application by its name.
 
-	initFunc  InitFunc
-	cleanFunc CleanFunc
+	initFunc   InitFunc
+	initFuncV2 InitFuncV2
+	cleanFunc  CleanFunc
 
 	state int // The installation state.
 }
@@ -76,6 +89,18 @@ func (a *App) InitV2(initFunc InitFunc) *App {
 	return a
 }
 
+// InitFunc sets the function used to initialize the current application.
+func (a *App) InitFunc(initFuncV2 InitFuncV2) *App {
+	a.initFuncV2 = initFuncV2
+	return a
+}
+
+// CleanFunc sets the function used to do the cleanup work for current application.
+func (a *App) CleanFunc(cleanFunc CleanFunc) *App {
+	a.cleanFunc = cleanFunc
+	return a
+}
+
 // Install does the initialization work for the current application.
 func (a *App) Install(ctx context.Context, lc Lifecycle, after func(*App)) (err error) {
 	switch a.state {
@@ -94,6 +119,18 @@ func (a *App) Install(ctx context.Context, lc Lifecycle, after func(*App)) (err 
 	}
 	for _, app := range a.requiredApps {
 		if err = app.Install(ctx, lc, after); err != nil {
+			return err
+		}
+	}
+
+	// Finally install the app itself.
+	if a.initFuncV2 != nil {
+		if err := a.initFuncV2(Context{
+			Context:   ctx,
+			App:       a,
+			Required:  a.requiredApps,
+			Lifecycle: lc,
+		}); err != nil {
 			return err
 		}
 	}
