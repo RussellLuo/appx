@@ -10,45 +10,57 @@ import (
 
 func Example() {
 	// Typically located in `func init()` of package a.
-	appx.MustRegister(appx.New("a").
-		InitV2(func(ctx context.Context, lc appx.Lifecycle, apps map[string]*appx.App) (appx.Value, appx.CleanFunc, error) {
-			fmt.Printf("Initializing app %q, which requires %d app\n", "a", len(apps))
-			lc.Append(appx.Hook{
-				OnStart: func(ctx context.Context) error {
-					fmt.Println(`Starting app "a"`)
+	appx.MustRegister(
+		appx.New("a").
+			InitFunc(func(ctx appx.Context) error {
+				name := ctx.App.Name
+				fmt.Printf("Initializing app %q, which requires %d app\n", name, len(ctx.Required))
+
+				ctx.Lifecycle.Append(appx.Hook{
+					OnStart: func(ctx context.Context) error {
+						fmt.Printf("Starting app %q\n", name)
+						return nil
+					},
+					OnStop: func(ctx context.Context) error {
+						fmt.Printf("Stopping app %q\n", name)
+						return nil
+					},
+				})
+
+				ctx.App.CleanFunc(func() error {
+					fmt.Printf("Doing cleanup for app %q\n", name)
 					return nil
-				},
-				OnStop: func(ctx context.Context) error {
-					fmt.Println(`Stopping app "a"`)
-					return nil
-				},
-			})
-			return nil, func() error {
-				fmt.Println(`Doing cleanup for app "a"`)
+				})
 				return nil
-			}, nil
-		}))
+			}),
+	)
 
 	// Typically located in `func init()` of package b.
-	appx.MustRegister(appx.New("b").
-		Require("a").
-		InitV2(func(ctx context.Context, lc appx.Lifecycle, apps map[string]*appx.App) (appx.Value, appx.CleanFunc, error) {
-			fmt.Printf("Initializing app %q, which requires app %q\n", "b", apps["a"].Name)
-			lc.Append(appx.Hook{
-				OnStart: func(ctx context.Context) error {
-					fmt.Println(`Starting app "b"`)
+	appx.MustRegister(
+		appx.New("b").
+			Require("a").
+			InitFunc(func(ctx appx.Context) error {
+				name := ctx.App.Name
+				fmt.Printf("Initializing app %q, which requires app %q\n", name, ctx.Required["a"].Name)
+
+				ctx.Lifecycle.Append(appx.Hook{
+					OnStart: func(ctx context.Context) error {
+						fmt.Printf("Starting app %q\n", name)
+						return nil
+					},
+					OnStop: func(ctx context.Context) error {
+						fmt.Printf("Stopping app %q\n", name)
+						return nil
+					},
+				})
+
+				ctx.App.CleanFunc(func() error {
+					fmt.Printf("Doing cleanup for app %q\n", name)
 					return nil
-				},
-				OnStop: func(ctx context.Context) error {
-					fmt.Println(`Stopping app "b"`)
-					return nil
-				},
-			})
-			return nil, func() error {
-				fmt.Println(`Doing cleanup for app "b"`)
+				})
 				return nil
-			}, nil
-		}))
+			}),
+	)
 
 	// Typically located in `func main()` of package main.
 	if err := appx.Install(context.Background(), "b"); err != nil {
