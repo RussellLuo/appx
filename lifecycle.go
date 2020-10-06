@@ -4,8 +4,8 @@ import (
 	"context"
 )
 
-// Lifecycle allows constructors to register callbacks that are executed on
-// application start and stop.
+// Lifecycle allows application initializers to register callbacks that are
+// executed on application start and stop.
 //
 // The concept of lifecycle is borrowed from https://github.com/uber-go/fx.
 type Lifecycle interface {

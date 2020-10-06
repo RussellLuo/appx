@@ -28,7 +28,7 @@ func Example() {
 				})
 
 				ctx.App.CleanFunc(func() error {
-					fmt.Printf("Doing cleanup for app %q\n", name)
+					fmt.Printf("Cleaning up app %q\n", name)
 					return nil
 				})
 				return nil
@@ -55,7 +55,7 @@ func Example() {
 				})
 
 				ctx.App.CleanFunc(func() error {
-					fmt.Printf("Doing cleanup for app %q\n", name)
+					fmt.Printf("Cleaning up app %q\n", name)
 					return nil
 				})
 				return nil
@@ -69,6 +69,9 @@ func Example() {
 	}
 	defer appx.Uninstall()
 
+	// In a typical scenario, we could just use appx.Run() here. Since we
+	// don't want this example to run forever, we'll use the more explicit
+	// Start and Stop.
 	startCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	if err := appx.Start(startCtx); err != nil {
@@ -90,6 +93,6 @@ func Example() {
 	// Everything is running
 	// Stopping app "b"
 	// Stopping app "a"
-	// Doing cleanup for app "b"
-	// Doing cleanup for app "a"
+	// Cleaning up app "b"
+	// Cleaning up app "a"
 }

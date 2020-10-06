@@ -95,7 +95,7 @@ func (a *App) InitFunc(initFuncV2 InitFuncV2) *App {
 	return a
 }
 
-// CleanFunc sets the function used to do the cleanup work for current application.
+// CleanFunc sets the function used to clean up the current application.
 func (a *App) CleanFunc(cleanFunc CleanFunc) *App {
 	a.cleanFunc = cleanFunc
 	return a
