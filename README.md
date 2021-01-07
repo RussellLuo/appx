@@ -14,12 +14,13 @@ $ go get -u github.com/RussellLuo/appx
 
 - [Basic usage](example_test.go)
 - [HTTP applications][1]
-- [CRON applications][2]
+- [HTTP applications][2] ([Gin][3]-based)
+- [CRON applications][4]
 
 
 ## Documentation
 
-Checkout the [Godoc][3].
+Checkout the [Godoc][5].
 
 
 ## License
@@ -28,5 +29,7 @@ Checkout the [Godoc][3].
 
 
 [1]: https://github.com/RussellLuo/kok/blob/master/pkg/appx/httpapp/example_test.go
-[2]: https://github.com/RussellLuo/kok/blob/master/pkg/appx/cronapp/example_test.go
-[3]: https://pkg.go.dev/mod/github.com/RussellLuo/appx
+[2]: https://gist.github.com/RussellLuo/5e706323e215bd8cb840cb7ae6aabae7
+[3]: https://github.com/gin-gonic/gin
+[4]: https://github.com/RussellLuo/kok/blob/master/pkg/appx/cronapp/example_test.go
+[5]: https://pkg.go.dev/mod/github.com/RussellLuo/appx
