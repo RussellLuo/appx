@@ -1,6 +1,7 @@
 package appx
 
 import (
+	"context"
 	"time"
 )
 
@@ -8,6 +9,8 @@ var (
 	// config is the Config singleton.
 	config = Config{}
 )
+
+type Unmarshaller func(context.Context, string, interface{}) error
 
 // Config is the appx configuration.
 type Config struct {
@@ -19,6 +22,10 @@ type Config struct {
 
 	// The handler for errors during the Stop and Uninstall phases.
 	ErrorHandler func(error)
+
+	// The unmarshaller that unmarshals an application's configuration
+	// into its instance.
+	Unmarshaller Unmarshaller
 }
 
 func (c Config) startTimeout() time.Duration {
@@ -40,6 +47,13 @@ func (c Config) errorHandler() func(error) {
 		return func(error) {}
 	}
 	return c.ErrorHandler
+}
+
+func (c Config) unmarshaller() Unmarshaller {
+	if c.Unmarshaller == nil {
+		return func(context.Context, string, interface{}) error { return nil }
+	}
+	return c.Unmarshaller
 }
 
 // SetConfig sets the appx configuration.

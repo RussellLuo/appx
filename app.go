@@ -11,6 +11,29 @@ const (
 	stateUninstalled
 )
 
+type InitCleaner interface {
+	// Init initializes an application with the given context ctx.
+	// It will return an error if fails.
+	Init(Context) error
+
+	// Clean does the cleanup work for an application. It will return an error if fails.
+	Clean() error
+}
+
+type StartStopper interface {
+	// Start kicks off a long-running application, like network servers or
+	// message queue consumers. It will return an error if fails.
+	Start(context.Context) error
+
+	// Stop gracefully stops a long-running application. It will return an
+	// error if fails.
+	Stop(context.Context) error
+}
+
+type Validator interface {
+	Validate() error
+}
+
 // Context is a set of context parameters used to initialize an application.
 type Context struct {
 	context.Context
@@ -47,6 +70,8 @@ type App struct {
 	requiredApps  map[string]*App
 	getAppFunc    func(name string) (*App, error) // The function used to find an application by its name.
 
+	instance InitCleaner // The user-defined application instance.
+
 	initFunc   InitFunc
 	initFuncV2 InitFuncV2
 	cleanFunc  CleanFunc
@@ -66,12 +91,32 @@ func New(name string) *App {
 	}
 }
 
+// New creates an application with the given name.
+func NewV2(name string, instance InitCleaner) *App {
+	return &App{
+		Name:          name,
+		requiredNames: make(map[string]bool),
+		requiredApps:  make(map[string]*App),
+		getAppFunc: func(name string) (*App, error) {
+			return nil, fmt.Errorf("app %q is not registered", name)
+		},
+		instance:   instance,
+		initFuncV2: instance.Init,
+		cleanFunc:  instance.Clean,
+	}
+}
+
 // Require sets the names of the applications that the current application requires.
 func (a *App) Require(names ...string) *App {
 	for _, name := range names {
 		a.requiredNames[name] = true
 	}
 	return a
+}
+
+// Instance returns the underlying user-defined application instance.
+func (a *App) Instance() interface{} {
+	return a.instance
 }
 
 // Init sets the function used to initialize the current application.
@@ -123,23 +168,62 @@ func (a *App) Install(ctx context.Context, lc Lifecycle, after func(*App)) (err 
 		}
 	}
 
-	// Finally install the app itself.
-	if a.initFuncV2 != nil {
-		if err := a.initFuncV2(Context{
-			Context:   ctx,
-			App:       a,
-			Required:  a.requiredApps,
-			Lifecycle: lc,
+	if a.instance != nil {
+		/////////////////////////////////////////////////////
+		// New logic for cases where app is created by NewV2.
+
+		// Unmarshal possible configurations into the app instance.
+		unmarshal := config.unmarshaller()
+		if err := unmarshal(ctx, a.Name, a.instance); err != nil {
+			return err
+		}
+
+		// Install the app instance.
+		if err := a.instance.Init(Context{
+			Context:  ctx,
+			App:      a,
+			Required: a.requiredApps,
 		}); err != nil {
 			return err
 		}
-	}
 
-	// Finally install the app itself.
-	if a.initFunc != nil {
-		a.Value, a.cleanFunc, err = a.initFunc(ctx, lc, a.requiredApps)
-		if err != nil {
-			return err
+		// If a.instance implements StartStopper, set the appropriate
+		// lifecycle hooks.
+		if startStopper, ok := a.instance.(StartStopper); ok {
+			lc.Append(Hook{
+				OnStart: startStopper.Start,
+				OnStop:  startStopper.Stop,
+			})
+		}
+
+		// If a.instance implements Validator, trigger the validation.
+		if validator, ok := a.instance.(Validator); ok {
+			if err := validator.Validate(); err != nil {
+				return err
+			}
+		}
+	} else {
+		///////////////////////////////////////////////////
+		// Old logic for cases where app is created by New.
+
+		// Finally install the app itself.
+		if a.initFuncV2 != nil {
+			if err := a.initFuncV2(Context{
+				Context:   ctx,
+				App:       a,
+				Required:  a.requiredApps,
+				Lifecycle: lc,
+			}); err != nil {
+				return err
+			}
+		}
+
+		// Finally install the app itself.
+		if a.initFunc != nil {
+			a.Value, a.cleanFunc, err = a.initFunc(ctx, lc, a.requiredApps)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -158,9 +242,21 @@ func (a *App) Uninstall() (err error) {
 		return nil
 	}
 
-	if a.cleanFunc != nil {
-		if err = a.cleanFunc(); err != nil {
+	if a.instance != nil {
+		/////////////////////////////////////////////////////
+		// New logic for cases where app is created by NewV2.
+
+		if err = a.instance.Clean(); err != nil {
 			return err
+		}
+	} else {
+		///////////////////////////////////////////////////
+		// Old logic for cases where app is created by New.
+
+		if a.cleanFunc != nil {
+			if err = a.cleanFunc(); err != nil {
+				return err
+			}
 		}
 	}
 
