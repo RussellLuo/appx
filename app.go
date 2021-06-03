@@ -70,7 +70,8 @@ type App struct {
 	requiredApps  map[string]*App
 	getAppFunc    func(name string) (*App, error) // The function used to find an application by its name.
 
-	instance InitCleaner // The user-defined application instance.
+	instance     InitCleaner // The user-defined application instance.
+	unmarshaller Unmarshaller
 
 	initFunc   InitFunc
 	initFuncV2 InitFuncV2
@@ -173,8 +174,7 @@ func (a *App) Install(ctx context.Context, lc Lifecycle, after func(*App)) (err 
 		// New logic for cases where app is created by NewV2.
 
 		// Unmarshal possible configurations into the app instance.
-		unmarshal := config.unmarshaller()
-		if err := unmarshal(ctx, a.Name, a.instance); err != nil {
+		if err := a.unmarshaller(ctx, a.Name, a.instance); err != nil {
 			return err
 		}
 

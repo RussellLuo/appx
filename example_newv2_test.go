@@ -75,27 +75,27 @@ func (b *B) Stop(ctx context.Context) error {
 }
 
 func Example_newV2() {
+	r := appx.NewRegistry(appx.AppUnmarshaller())
+
 	// Typically located in `func init()` of package a.
-	appx.MustRegister(appx.NewV2("a2", new(A)))
+	r.MustRegister(appx.NewV2("a2", new(A)))
 
 	// Typically located in `func init()` of package b.
-	appx.MustRegister(appx.NewV2("b2", new(B)).Require("a2"))
-
-	ctx := context.Background()
+	r.MustRegister(appx.NewV2("b2", new(B)).Require("a2"))
 
 	// Typically located in `func main()` of package main.
-	if err := appx.Install(ctx, "b2"); err != nil {
+	if err := r.Install(context.Background(), "b2"); err != nil {
 		fmt.Printf("err: %v\n", err)
 		return
 	}
-	defer appx.Uninstall()
+	defer r.Uninstall()
 
-	// In a typical scenario, we could just use appx.Run() here. Since we
+	// In a typical scenario, we could just use r.Run() here. Since we
 	// don't want this example to run forever, we'll use the more explicit
 	// Start and Stop.
 	startCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	if err := appx.Start(startCtx); err != nil {
+	if err := r.Start(startCtx); err != nil {
 		fmt.Printf("err: %v\n", err)
 		return
 	}
@@ -104,7 +104,7 @@ func Example_newV2() {
 
 	stopCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	appx.Stop(stopCtx)
+	r.Stop(stopCtx)
 
 	// Output:
 	// Initializing app "a2", which requires 0 app

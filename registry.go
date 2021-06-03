@@ -6,21 +6,33 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 )
 
-var (
-	// registry holds all the registered applications.
-	registry = make(map[string]*App)
+type Registry struct {
+	// registered holds all the registered applications.
+	registered map[string]*App
 
 	// installed holds all the installed applications, in dependency order.
 	installed []*App
 
 	// lifecycle holds the Start and Stop callbacks of the runnable applications.
-	lifecycle = new(lifecycleImpl)
-)
+	lifecycle *lifecycleImpl
+
+	options *Options
+}
+
+// NewRegistry creates a new registry.
+func NewRegistry(opts ...Option) *Registry {
+	return &Registry{
+		registered: make(map[string]*App),
+		lifecycle:  new(lifecycleImpl),
+		options:    NewOptions(opts...),
+	}
+}
 
 // Register registers the application app into the registry.
-func Register(app *App) error {
+func (r *Registry) Register(app *App) error {
 	if app == nil {
 		return fmt.Errorf("nil app %v", app)
 	}
@@ -29,18 +41,19 @@ func Register(app *App) error {
 		return fmt.Errorf("the name of app %v is empty", app)
 	}
 
-	if _, ok := registry[app.Name]; ok {
+	if _, ok := r.registered[app.Name]; ok {
 		return fmt.Errorf("app %q is already registered", app.Name)
 	}
 
-	registry[app.Name] = app
-	app.getAppFunc = getApp // Find an application in the registry.
+	r.registered[app.Name] = app
+	app.getAppFunc = r.getApp // Find an application in the registry.
+	app.unmarshaller = r.options.AppUnmarshaller
 	return nil
 }
 
 // MustRegister is like Register but panics if there is an error.
-func MustRegister(app *App) {
-	if err := Register(app); err != nil {
+func (r *Registry) MustRegister(app *App) {
+	if err := r.Register(app); err != nil {
 		panic(err)
 	}
 }
@@ -49,14 +62,14 @@ func MustRegister(app *App) {
 // If no name is specified, all registered applications will be installed.
 //
 // Note that applications will be installed in dependency order.
-func Install(ctx context.Context, names ...string) error {
+func (r *Registry) Install(ctx context.Context, names ...string) error {
 	after := func(app *App) {
-		installed = append(installed, app)
+		r.installed = append(r.installed, app)
 	}
 
 	if len(names) == 0 {
-		for _, app := range registry {
-			if err := app.Install(ctx, lifecycle, after); err != nil {
+		for _, app := range r.registered {
+			if err := app.Install(ctx, r.lifecycle, after); err != nil {
 				// Install failed, roll back.
 				Uninstall()
 				return err
@@ -65,13 +78,13 @@ func Install(ctx context.Context, names ...string) error {
 	}
 
 	for _, name := range names {
-		app, err := getApp(name)
+		app, err := r.getApp(name)
 		if err != nil {
 			// Install failed, roll back.
 			Uninstall()
 			return err
 		}
-		if err := app.Install(ctx, lifecycle, after); err != nil {
+		if err := app.Install(ctx, r.lifecycle, after); err != nil {
 			// Install failed, roll back.
 			Uninstall()
 			return err
@@ -83,16 +96,16 @@ func Install(ctx context.Context, names ...string) error {
 
 // Uninstall uninstalls the applications that has already been installed, in
 // the reverse order of installation.
-func Uninstall() {
-	for i := len(installed); i > 0; i-- {
-		if err := installed[i-1].Uninstall(); err != nil {
-			config.errorHandler()(err)
+func (r *Registry) Uninstall() {
+	for i := len(r.installed); i > 0; i-- {
+		if err := r.installed[i-1].Uninstall(); err != nil {
+			r.options.ErrorHandler(err)
 		}
 	}
 }
 
-func getApp(name string) (*App, error) {
-	app, ok := registry[name]
+func (r *Registry) getApp(name string) (*App, error) {
+	app, ok := r.registered[name]
 	if !ok {
 		return nil, fmt.Errorf("app %q is not registered", name)
 	}
@@ -106,8 +119,8 @@ func getApp(name string) (*App, error) {
 //
 // The default timeout for application startup and shutdown is 15s, which can
 // be changed by using SetConfig.
-func Run() (os.Signal, error) {
-	startCtx, cancel := context.WithTimeout(context.Background(), config.startTimeout())
+func (r *Registry) Run() (os.Signal, error) {
+	startCtx, cancel := context.WithTimeout(context.Background(), r.options.StartTimeout)
 	defer cancel()
 	if err := Start(startCtx); err != nil {
 		return nil, err
@@ -117,38 +130,38 @@ func Run() (os.Signal, error) {
 	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
 	sig := <-c
 
-	stopCtx, cancel := context.WithTimeout(context.Background(), config.stopTimeout())
+	stopCtx, cancel := context.WithTimeout(context.Background(), r.options.StopTimeout)
 	defer cancel()
-	Stop(stopCtx)
+	r.Stop(stopCtx)
 
 	return sig, nil
 }
 
 // Start kicks off all long-running applications, like network servers or
 // message queue consumers. It will returns immediately if it encounters an error.
-func Start(ctx context.Context) error {
-	return withTimeout(ctx, start)
+func (r *Registry) Start(ctx context.Context) error {
+	return withTimeout(ctx, r.start)
 }
 
 // Stop gracefully stops all long-running applications. For best-effort cleanup,
 // It will keep going after encountering errors, and all errors will be passed
 // to the handler specified by ErrorHandler.
-func Stop(ctx context.Context) {
-	withTimeout(ctx, stop)
+func (r *Registry) Stop(ctx context.Context) {
+	withTimeout(ctx, r.stop)
 }
 
-func start(ctx context.Context) error {
-	if err := lifecycle.Start(ctx); err != nil {
+func (r *Registry) start(ctx context.Context) error {
+	if err := r.lifecycle.Start(ctx); err != nil {
 		// Start failed, roll back.
-		stop(ctx)
+		r.stop(ctx)
 		return err
 	}
 	return nil
 }
 
-func stop(ctx context.Context) error {
-	for _, err := range lifecycle.Stop(ctx) {
-		config.errorHandler()(err)
+func (r *Registry) stop(ctx context.Context) error {
+	for _, err := range r.lifecycle.Stop(ctx) {
+		r.options.ErrorHandler(err)
 	}
 	return nil
 }
@@ -162,5 +175,68 @@ func withTimeout(ctx context.Context, f func(context.Context) error) error {
 		return ctx.Err()
 	case err := <-c:
 		return err
+	}
+}
+
+// Options is the configuration for Registry.
+type Options struct {
+	// The timeout of application startup. Defaults to 15s.
+	StartTimeout time.Duration
+
+	// The timeout of application shutdown. Defaults to 15s.
+	StopTimeout time.Duration
+
+	// The handler for errors during the Stop and Uninstall phases.
+	ErrorHandler func(error)
+
+	// The unmarshaller that unmarshals an application's configuration
+	// into its instance.
+	AppUnmarshaller Unmarshaller
+}
+
+type Config = Options
+
+type Unmarshaller func(context.Context, string, interface{}) error
+
+func NewOptions(opts ...Option) *Options {
+	options := &Options{
+		StartTimeout:    15 * time.Second,
+		StopTimeout:     15 * time.Second,
+		ErrorHandler:    func(error) {},
+		AppUnmarshaller: func(context.Context, string, interface{}) error { return nil },
+	}
+	for _, o := range opts {
+		o(options)
+	}
+	return options
+}
+
+type Option func(*Options)
+
+// StartTimeout sets the StartTimeout option.
+func StartTimeout(d time.Duration) Option {
+	return func(o *Options) {
+		o.StartTimeout = d
+	}
+}
+
+// StopTimeout sets the StopTimeout option.
+func StopTimeout(d time.Duration) Option {
+	return func(o *Options) {
+		o.StopTimeout = d
+	}
+}
+
+// ErrorHandler sets the ErrorHandler option.
+func ErrorHandler(f func(error)) Option {
+	return func(o *Options) {
+		o.ErrorHandler = f
+	}
+}
+
+// AppUnmarshaller sets the AppUnmarshaller option.
+func AppUnmarshaller(u Unmarshaller) Option {
+	return func(o *Options) {
+		o.AppUnmarshaller = u
 	}
 }
