@@ -147,13 +147,13 @@ func (r *Registry) Start(ctx context.Context) error {
 // It will keep going after encountering errors, and all errors will be passed
 // to the handler specified by ErrorHandler.
 func (r *Registry) Stop(ctx context.Context) {
-	withTimeout(ctx, r.stop)
+	withTimeout(ctx, r.stop) // nolint:errcheck
 }
 
 func (r *Registry) start(ctx context.Context) error {
 	if err := r.lifecycle.Start(ctx); err != nil {
 		// Start failed, roll back.
-		r.stop(ctx)
+		r.stop(ctx) // nolint:errcheck
 		return err
 	}
 	return nil
