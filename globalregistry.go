@@ -17,6 +17,10 @@ func MustRegister(app *App) {
 	globalRegistry.MustRegister(app)
 }
 
+func SetOptions(opts *Options) {
+	globalRegistry.SetOptions(opts)
+}
+
 func Install(ctx context.Context, names ...string) error {
 	return globalRegistry.Install(ctx, names...)
 }
@@ -37,18 +41,12 @@ func Stop(ctx context.Context) {
 	globalRegistry.Stop(ctx)
 }
 
+// DEPRECATED
+// Config is defined here for backwards compatibility.
+type Config = Options
+
+// DEPRECATED
 // SetConfig sets the configuration of globalRegistry.
 func SetConfig(c Config) {
-	if c.StartTimeout > 0 {
-		globalRegistry.options.StartTimeout = c.StartTimeout
-	}
-	if c.StopTimeout > 0 {
-		globalRegistry.options.StopTimeout = c.StopTimeout
-	}
-	if c.ErrorHandler != nil {
-		globalRegistry.options.ErrorHandler = c.ErrorHandler
-	}
-	if c.AppConfigs != nil {
-		globalRegistry.options.AppConfigs = c.AppConfigs
-	}
+	globalRegistry.SetOptions(&c)
 }

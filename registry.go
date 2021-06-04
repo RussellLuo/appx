@@ -19,15 +19,15 @@ type Registry struct {
 	// lifecycle holds the Start and Stop callbacks of the runnable applications.
 	lifecycle *lifecycleImpl
 
-	options *options
+	options *Options
 }
 
 // NewRegistry creates a new registry.
-func NewRegistry(opts ...Option) *Registry {
+func NewRegistry() *Registry {
 	return &Registry{
 		registered: make(map[string]*App),
 		lifecycle:  new(lifecycleImpl),
-		options:    newOptions(opts...),
+		options:    new(Options).init(),
 	}
 }
 
@@ -47,7 +47,7 @@ func (r *Registry) Register(app *App) error {
 
 	r.registered[app.Name] = app
 	app.getAppFunc = r.getApp // Find an application in the registry.
-	app.config = r.options.AppConfigs[app.Name]
+	app.getConfigFunc = func(name string) interface{} { return r.options.AppConfigs[name] }
 	return nil
 }
 
@@ -56,6 +56,11 @@ func (r *Registry) MustRegister(app *App) {
 	if err := r.Register(app); err != nil {
 		panic(err)
 	}
+}
+
+// SetOptions sets the options for the registry.
+func (r *Registry) SetOptions(opts *Options) {
+	r.options = opts.init()
 }
 
 // Install installs the applications specified by names, with the given ctx.
@@ -178,43 +183,8 @@ func withTimeout(ctx context.Context, f func(context.Context) error) error {
 	}
 }
 
-// Option sets an optional configuration for a registry.
-type Option func(*options)
-
-// StartTimeout sets the timeout of application startup. Defaults to 15s.
-func StartTimeout(d time.Duration) Option {
-	return func(o *options) {
-		o.StartTimeout = d
-	}
-}
-
-// StopTimeout sets the timeout of application shutdown. Defaults to 15s.
-func StopTimeout(d time.Duration) Option {
-	return func(o *options) {
-		o.StopTimeout = d
-	}
-}
-
-// ErrorHandler sets handler for errors during the Stop and Uninstall phases.
-func ErrorHandler(f func(error)) Option {
-	return func(o *options) {
-		o.ErrorHandler = f
-	}
-}
-
-// AppConfigs sets the configurations for all registered applications.
-func AppConfigs(c map[string]interface{}) Option {
-	return func(o *options) {
-		o.AppConfigs = c
-	}
-}
-
-// DEPRECATED
-// Config is defined here for backwards compatibility.
-type Config = options
-
 // options is a set of optional configurations for a registry.
-type options struct {
+type Options struct {
 	// The timeout of application startup. Defaults to 15s.
 	StartTimeout time.Duration
 
@@ -228,14 +198,15 @@ type options struct {
 	AppConfigs map[string]interface{}
 }
 
-func newOptions(opts ...Option) *options {
-	options := &options{
-		StartTimeout: 15 * time.Second,
-		StopTimeout:  15 * time.Second,
-		ErrorHandler: func(error) {},
+func (o *Options) init() *Options {
+	if o.StartTimeout == 0 {
+		o.StartTimeout = 15 * time.Second
 	}
-	for _, o := range opts {
-		o(options)
+	if o.StopTimeout == 0 {
+		o.StopTimeout = 15 * time.Second
 	}
-	return options
+	if o.ErrorHandler == nil {
+		o.ErrorHandler = func(error) {}
+	}
+	return o
 }

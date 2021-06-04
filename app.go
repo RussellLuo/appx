@@ -73,8 +73,12 @@ func (ctx Context) MustLoad(name string) interface{} {
 
 // Config returns the configuration of the application associated with this
 // context. It will return nil if there is no configuration.
+//
+// Note that in the current implementation, in order to get the configuration
+// successfully, Context.Config() must be called after AppConfigs has already
+// been set by calling Registry.SetOptions().
 func (ctx Context) Config() interface{} {
-	return ctx.App.config
+	return ctx.App.getConfigFunc(ctx.App.Name)
 }
 
 // InitFuncV2 initializes an application with the given context ctx.
@@ -103,10 +107,14 @@ type App struct {
 
 	requiredNames map[string]bool
 	requiredApps  map[string]*App
-	getAppFunc    func(name string) (*App, error) // The function used to find an application by its name.
+
+	// The function used to find an application by its name.
+	getAppFunc func(name string) (*App, error)
+
+	// The function used to get the application's configuration by its name.
+	getConfigFunc func(name string) interface{}
 
 	instance interface{} // The user-defined application instance.
-	config   interface{} // The configuration of this application.
 
 	initFunc   InitFunc
 	initFuncV2 InitFuncV2
