@@ -11,22 +11,25 @@ const (
 	stateUninstalled
 )
 
-type InitCleaner interface {
+type Initializer interface {
 	// Init initializes an application with the given context ctx.
-	// It will return an error if fails.
+	// It will return an error if it fails.
 	Init(Context) error
+}
 
-	// Clean does the cleanup work for an application. It will return an error if fails.
+type Cleaner interface {
+	// Clean does the cleanup work for an application. It will return
+	// an error if it fails.
 	Clean() error
 }
 
 type StartStopper interface {
 	// Start kicks off a long-running application, like network servers or
-	// message queue consumers. It will return an error if fails.
+	// message queue consumers. It will return an error if it fails.
 	Start(context.Context) error
 
 	// Stop gracefully stops a long-running application. It will return an
-	// error if fails.
+	// error if it fails.
 	Stop(context.Context) error
 }
 
@@ -34,7 +37,8 @@ type Validator interface {
 	Validate() error
 }
 
-// Context is a set of context parameters used to initialize an application.
+// Context is a set of context parameters used to initialize the
+// associated application.
 type Context struct {
 	context.Context
 	App       *App            // DEPRECATED TODO: remove App
@@ -88,7 +92,7 @@ type App struct {
 	requiredApps  map[string]*App
 	getAppFunc    func(name string) (*App, error) // The function used to find an application by its name.
 
-	instance     InitCleaner // The user-defined application instance.
+	instance     interface{} // The user-defined application instance.
 	unmarshaller Unmarshaller
 
 	initFunc   InitFunc
@@ -111,18 +115,23 @@ func New(name string) *App {
 }
 
 // New creates an application with the given name.
-func NewV2(name string, instance InitCleaner) *App {
-	return &App{
+func NewV2(name string, instance interface{}) *App {
+	a := &App{
 		Name:          name,
 		requiredNames: make(map[string]bool),
 		requiredApps:  make(map[string]*App),
 		getAppFunc: func(name string) (*App, error) {
 			return nil, fmt.Errorf("app %q is not registered", name)
 		},
-		instance:   instance,
-		initFuncV2: instance.Init,
-		cleanFunc:  instance.Clean,
+		instance: instance,
 	}
+	if initializer, ok := instance.(Initializer); ok {
+		a.initFuncV2 = initializer.Init
+	}
+	if cleaner, ok := instance.(Cleaner); ok {
+		a.cleanFunc = cleaner.Clean
+	}
+	return a
 }
 
 // Require sets the names of the applications that the current application requires.
@@ -192,12 +201,15 @@ func (a *App) Install(ctx context.Context, lc Lifecycle, after func(*App)) (err 
 		}
 
 		// Install the app instance.
-		if err := a.instance.Init(Context{
-			Context:  ctx,
-			App:      a,
-			Required: a.requiredApps,
-		}); err != nil {
-			return err
+		if initializer, ok := a.instance.(Initializer); ok {
+			if err := initializer.Init(Context{
+				Context:  ctx,
+				App:      a,
+				Required: a.requiredApps,
+			}); err != nil {
+				return err
+			}
+
 		}
 
 		// If a.instance implements StartStopper, set the appropriate
@@ -259,8 +271,10 @@ func (a *App) Uninstall() (err error) {
 		/////////////////////////////////////////////////////
 		// New logic for cases where app is created by NewV2.
 
-		if err = a.instance.Clean(); err != nil {
-			return err
+		if cleaner, ok := a.instance.(Cleaner); ok {
+			if err = cleaner.Clean(); err != nil {
+				return err
+			}
 		}
 	} else {
 		///////////////////////////////////////////////////

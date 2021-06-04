@@ -10,10 +10,12 @@ import (
 
 // Interface guards
 var (
-	_ appx.InitCleaner  = (*A)(nil)
+	_ appx.Initializer  = (*A)(nil)
+	_ appx.Cleaner      = (*A)(nil)
 	_ appx.StartStopper = (*A)(nil)
 
-	_ appx.InitCleaner  = (*B)(nil)
+	_ appx.Initializer  = (*B)(nil)
+	_ appx.Cleaner      = (*B)(nil)
 	_ appx.StartStopper = (*B)(nil)
 )
 
