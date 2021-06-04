@@ -47,7 +47,7 @@ func (r *Registry) Register(app *App) error {
 
 	r.registered[app.Name] = app
 	app.getAppFunc = r.getApp // Find an application in the registry.
-	app.unmarshaller = r.options.AppUnmarshaller
+	app.config = r.options.AppConfigs[app.Name]
 	return nil
 }
 
@@ -202,15 +202,12 @@ func ErrorHandler(f func(error)) Option {
 	}
 }
 
-// AppUnmarshaller sets the unmarshaller that unmarshals an application's
-// configuration into its instance.
-func AppUnmarshaller(u Unmarshaller) Option {
+// AppConfigs sets the configurations for all registered applications.
+func AppConfigs(c map[string]interface{}) Option {
 	return func(o *options) {
-		o.AppUnmarshaller = u
+		o.AppConfigs = c
 	}
 }
-
-type Unmarshaller func(context.Context, string, interface{}) error
 
 // DEPRECATED
 // Config is defined here for backwards compatibility.
@@ -227,17 +224,15 @@ type options struct {
 	// The handler for errors during the Stop and Uninstall phases.
 	ErrorHandler func(error)
 
-	// The unmarshaller that unmarshals an application's configuration
-	// into its instance.
-	AppUnmarshaller Unmarshaller
+	// The configurations for all registered applications.
+	AppConfigs map[string]interface{}
 }
 
 func newOptions(opts ...Option) *options {
 	options := &options{
-		StartTimeout:    15 * time.Second,
-		StopTimeout:     15 * time.Second,
-		ErrorHandler:    func(error) {},
-		AppUnmarshaller: func(context.Context, string, interface{}) error { return nil },
+		StartTimeout: 15 * time.Second,
+		StopTimeout:  15 * time.Second,
+		ErrorHandler: func(error) {},
 	}
 	for _, o := range opts {
 		o(options)

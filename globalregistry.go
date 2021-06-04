@@ -48,7 +48,7 @@ func SetConfig(c Config) {
 	if c.ErrorHandler != nil {
 		globalRegistry.options.ErrorHandler = c.ErrorHandler
 	}
-	if c.AppUnmarshaller != nil {
-		globalRegistry.options.AppUnmarshaller = c.AppUnmarshaller
+	if c.AppConfigs != nil {
+		globalRegistry.options.AppConfigs = c.AppConfigs
 	}
 }

@@ -11,10 +11,16 @@ const (
 	stateUninstalled
 )
 
+type Unmarshaller interface {
+	// Unmarshal unmarshals the given config into an application
+	// instance. It will return an error if it fails.
+	Unmarshal(config interface{}) error
+}
+
 type Initializer interface {
 	// Init initializes an application with the given context ctx.
 	// It will return an error if it fails.
-	Init(Context) error
+	Init(ctx Context) error
 }
 
 type Cleaner interface {
@@ -26,11 +32,11 @@ type Cleaner interface {
 type StartStopper interface {
 	// Start kicks off a long-running application, like network servers or
 	// message queue consumers. It will return an error if it fails.
-	Start(context.Context) error
+	Start(ctx context.Context) error
 
 	// Stop gracefully stops a long-running application. It will return an
 	// error if it fails.
-	Stop(context.Context) error
+	Stop(ctx context.Context) error
 }
 
 type Validator interface {
@@ -41,7 +47,8 @@ type Validator interface {
 // associated application.
 type Context struct {
 	context.Context
-	App       *App            // DEPRECATED TODO: remove App
+
+	App       *App            // The application associated with this context.
 	Required  map[string]*App // TODO: make Required unexported
 	Lifecycle Lifecycle       // DEPRECATED TODO: remove Lifecycle
 }
@@ -62,6 +69,12 @@ func (ctx Context) MustLoad(name string) interface{} {
 		panic(err)
 	}
 	return instance
+}
+
+// Config returns the configuration of the application associated with this
+// context. It will return nil if there is no configuration.
+func (ctx Context) Config() interface{} {
+	return ctx.App.config
 }
 
 // InitFuncV2 initializes an application with the given context ctx.
@@ -92,8 +105,8 @@ type App struct {
 	requiredApps  map[string]*App
 	getAppFunc    func(name string) (*App, error) // The function used to find an application by its name.
 
-	instance     interface{} // The user-defined application instance.
-	unmarshaller Unmarshaller
+	instance interface{} // The user-defined application instance.
+	config   interface{} // The configuration of this application.
 
 	initFunc   InitFunc
 	initFuncV2 InitFuncV2
@@ -195,21 +208,24 @@ func (a *App) Install(ctx context.Context, lc Lifecycle, after func(*App)) (err 
 		/////////////////////////////////////////////////////
 		// New logic for cases where app is created by NewV2.
 
+		appCtx := Context{
+			Context:  ctx,
+			App:      a,
+			Required: a.requiredApps,
+		}
+
 		// Unmarshal possible configurations into the app instance.
-		if err := a.unmarshaller(ctx, a.Name, a.instance); err != nil {
-			return err
+		if unmarshaller, ok := a.instance.(Unmarshaller); ok {
+			if err := unmarshaller.Unmarshal(appCtx.Config()); err != nil {
+				return err
+			}
 		}
 
 		// Install the app instance.
 		if initializer, ok := a.instance.(Initializer); ok {
-			if err := initializer.Init(Context{
-				Context:  ctx,
-				App:      a,
-				Required: a.requiredApps,
-			}); err != nil {
+			if err := initializer.Init(appCtx); err != nil {
 				return err
 			}
-
 		}
 
 		// If a.instance implements StartStopper, set the appropriate
