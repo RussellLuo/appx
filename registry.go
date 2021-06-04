@@ -19,7 +19,7 @@ type Registry struct {
 	// lifecycle holds the Start and Stop callbacks of the runnable applications.
 	lifecycle *lifecycleImpl
 
-	options *Options
+	options *options
 }
 
 // NewRegistry creates a new registry.
@@ -27,7 +27,7 @@ func NewRegistry(opts ...Option) *Registry {
 	return &Registry{
 		registered: make(map[string]*App),
 		lifecycle:  new(lifecycleImpl),
-		options:    NewOptions(opts...),
+		options:    newOptions(opts...),
 	}
 }
 
@@ -178,8 +178,46 @@ func withTimeout(ctx context.Context, f func(context.Context) error) error {
 	}
 }
 
-// Options is the configuration for Registry.
-type Options struct {
+// Option sets an optional configuration for a registry.
+type Option func(*options)
+
+// StartTimeout sets the timeout of application startup. Defaults to 15s.
+func StartTimeout(d time.Duration) Option {
+	return func(o *options) {
+		o.StartTimeout = d
+	}
+}
+
+// StopTimeout sets the timeout of application shutdown. Defaults to 15s.
+func StopTimeout(d time.Duration) Option {
+	return func(o *options) {
+		o.StopTimeout = d
+	}
+}
+
+// ErrorHandler sets handler for errors during the Stop and Uninstall phases.
+func ErrorHandler(f func(error)) Option {
+	return func(o *options) {
+		o.ErrorHandler = f
+	}
+}
+
+// AppUnmarshaller sets the unmarshaller that unmarshals an application's
+// configuration into its instance.
+func AppUnmarshaller(u Unmarshaller) Option {
+	return func(o *options) {
+		o.AppUnmarshaller = u
+	}
+}
+
+type Unmarshaller func(context.Context, string, interface{}) error
+
+// DEPRECATED
+// Config is defined here for backwards compatibility.
+type Config = options
+
+// options is a set of optional configurations for a registry.
+type options struct {
 	// The timeout of application startup. Defaults to 15s.
 	StartTimeout time.Duration
 
@@ -194,12 +232,8 @@ type Options struct {
 	AppUnmarshaller Unmarshaller
 }
 
-type Config = Options
-
-type Unmarshaller func(context.Context, string, interface{}) error
-
-func NewOptions(opts ...Option) *Options {
-	options := &Options{
+func newOptions(opts ...Option) *options {
+	options := &options{
 		StartTimeout:    15 * time.Second,
 		StopTimeout:     15 * time.Second,
 		ErrorHandler:    func(error) {},
@@ -209,34 +243,4 @@ func NewOptions(opts ...Option) *Options {
 		o(options)
 	}
 	return options
-}
-
-type Option func(*Options)
-
-// StartTimeout sets the StartTimeout option.
-func StartTimeout(d time.Duration) Option {
-	return func(o *Options) {
-		o.StartTimeout = d
-	}
-}
-
-// StopTimeout sets the StopTimeout option.
-func StopTimeout(d time.Duration) Option {
-	return func(o *Options) {
-		o.StopTimeout = d
-	}
-}
-
-// ErrorHandler sets the ErrorHandler option.
-func ErrorHandler(f func(error)) Option {
-	return func(o *Options) {
-		o.ErrorHandler = f
-	}
-}
-
-// AppUnmarshaller sets the AppUnmarshaller option.
-func AppUnmarshaller(u Unmarshaller) Option {
-	return func(o *Options) {
-		o.AppUnmarshaller = u
-	}
 }
