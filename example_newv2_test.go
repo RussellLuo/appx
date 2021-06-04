@@ -54,7 +54,7 @@ func (b *B) Init(ctx appx.Context) error {
 	b.Name = ctx.App.Name
 	b.Value = "value_b"
 
-	a := ctx.Required["a2"].Instance().(*A)
+	a := ctx.MustLoad("a2").(*A)
 	fmt.Printf("Initializing app %q, which requires app %q, whose value is %q\n", b.Name, a.Name, a.Value)
 	return nil
 }
@@ -75,7 +75,7 @@ func (b *B) Stop(ctx context.Context) error {
 }
 
 func Example_newV2() {
-	r := appx.NewRegistry(appx.AppUnmarshaller())
+	r := appx.NewRegistry()
 
 	// Typically located in `func init()` of package a.
 	r.MustRegister(appx.NewV2("a2", new(A)))

@@ -37,9 +37,27 @@ type Validator interface {
 // Context is a set of context parameters used to initialize an application.
 type Context struct {
 	context.Context
-	App       *App
-	Required  map[string]*App
-	Lifecycle Lifecycle
+	App       *App            // DEPRECATED TODO: remove App
+	Required  map[string]*App // TODO: make Required unexported
+	Lifecycle Lifecycle       // DEPRECATED TODO: remove Lifecycle
+}
+
+// Load loads the application instance specified by name. It will return
+// an error if the given name does not refer to any required application.
+func (ctx Context) Load(name string) (interface{}, error) {
+	if app, ok := ctx.Required[name]; ok {
+		return app.instance, nil
+	}
+	return nil, fmt.Errorf("app %q is not required", name)
+}
+
+// MustLoad is like Load but panics if there is an error.
+func (ctx Context) MustLoad(name string) interface{} {
+	instance, err := ctx.Load(name)
+	if err != nil {
+		panic(err)
+	}
+	return instance
 }
 
 // InitFuncV2 initializes an application with the given context ctx.
@@ -113,11 +131,6 @@ func (a *App) Require(names ...string) *App {
 		a.requiredNames[name] = true
 	}
 	return a
-}
-
-// Instance returns the underlying user-defined application instance.
-func (a *App) Instance() interface{} {
-	return a.instance
 }
 
 // Init sets the function used to initialize the current application.
