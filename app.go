@@ -11,12 +11,6 @@ const (
 	stateUninstalled
 )
 
-type Unmarshaller interface {
-	// Unmarshal unmarshals the given config into an application
-	// instance. It will return an error if it fails.
-	Unmarshal(config interface{}) error
-}
-
 type Initializer interface {
 	// Init initializes an application with the given context ctx.
 	// It will return an error if it fails.
@@ -212,6 +206,7 @@ func (a *App) Install(ctx context.Context, lc Lifecycle, after func(*App)) (err 
 		}
 	}
 
+	// Finally install the app itself.
 	if a.instance != nil {
 		/////////////////////////////////////////////////////
 		// New logic for cases where app is created by NewV2.
@@ -222,14 +217,7 @@ func (a *App) Install(ctx context.Context, lc Lifecycle, after func(*App)) (err 
 			Required: a.requiredApps,
 		}
 
-		// Unmarshal possible configurations into the app instance.
-		if unmarshaller, ok := a.instance.(Unmarshaller); ok {
-			if err := unmarshaller.Unmarshal(appCtx.Config()); err != nil {
-				return err
-			}
-		}
-
-		// Install the app instance.
+		// If a.instance implements Initializer, initialize the app instance.
 		if initializer, ok := a.instance.(Initializer); ok {
 			if err := initializer.Init(appCtx); err != nil {
 				return err
@@ -255,7 +243,6 @@ func (a *App) Install(ctx context.Context, lc Lifecycle, after func(*App)) (err 
 		///////////////////////////////////////////////////
 		// Old logic for cases where app is created by New.
 
-		// Finally install the app itself.
 		if a.initFuncV2 != nil {
 			if err := a.initFuncV2(Context{
 				Context:   ctx,
@@ -267,7 +254,6 @@ func (a *App) Install(ctx context.Context, lc Lifecycle, after func(*App)) (err 
 			}
 		}
 
-		// Finally install the app itself.
 		if a.initFunc != nil {
 			a.Value, a.cleanFunc, err = a.initFunc(ctx, lc, a.requiredApps)
 			if err != nil {
