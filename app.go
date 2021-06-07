@@ -33,6 +33,10 @@ type StartStopper interface {
 	Stop(ctx context.Context) error
 }
 
+type Instancer interface {
+	Instance() interface{}
+}
+
 type Validator interface {
 	Validate() error
 }
@@ -51,6 +55,9 @@ type Context struct {
 // an error if the given name does not refer to any required application.
 func (ctx Context) Load(name string) (interface{}, error) {
 	if app, ok := ctx.Required[name]; ok {
+		if instancer, ok := app.instance.(Instancer); ok {
+			return instancer.Instance(), nil
+		}
 		return app.instance, nil
 	}
 	return nil, fmt.Errorf("app %q is not required", name)
