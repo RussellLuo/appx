@@ -10,6 +10,24 @@ $ go get -u github.com/RussellLuo/appx
 ```
 
 
+## Application Lifecycle
+
+Simple Application:
+
+```
+            +-------+     +-------+
+(BEGIN) --> | Init  | --> | Clean | --> (END)
+            +-------+     +-------+
+```
+
+Runnable Application:
+
+```
+            +-------+     +-------+     +-------+     +-------+
+(BEGIN) --> | Init  | --> | Start | --> | Stop  | --> | Clean | --> (END)
+            +-------+     +-------+     +-------+     +-------+
+```
+
 ## Examples
 
 - [Basic usage](example_test.go)
