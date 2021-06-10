@@ -28,7 +28,7 @@ func (a *A) Init(ctx appx.Context) error {
 	a.Name = ctx.App.Name
 	a.Value = "value_a"
 
-	fmt.Printf("Initializing app %q, which requires %d app\n", a.Name, len(ctx.Required))
+	fmt.Printf("Initializing app %q, which requires no app\n", a.Name)
 	return nil
 }
 
@@ -109,7 +109,7 @@ func Example() {
 	r.Stop(stopCtx)
 
 	// Output:
-	// Initializing app "a", which requires 0 app
+	// Initializing app "a", which requires no app
 	// Initializing app "b", which requires app "a", whose value is "value_a"
 	// Starting app "a"
 	// Starting app "b"

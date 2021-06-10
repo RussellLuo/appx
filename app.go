@@ -46,15 +46,14 @@ type Validator interface {
 type Context struct {
 	context.Context
 
-	App       *App            // The application associated with this context.
-	Required  map[string]*App // TODO: make Required unexported
-	Lifecycle Lifecycle       // DEPRECATED TODO: remove Lifecycle
+	App      *App // The application associated with this context.
+	required map[string]*App
 }
 
 // Load loads the application instance specified by name. It will return
 // an error if the given name does not refer to any required application.
 func (ctx Context) Load(name string) (interface{}, error) {
-	if app, ok := ctx.Required[name]; ok {
+	if app, ok := ctx.required[name]; ok {
 		if instancer, ok := app.instance.(Instancer); ok {
 			return instancer.Instance(), nil
 		}
@@ -150,7 +149,7 @@ func (a *App) Install(ctx context.Context, lc Lifecycle, after func(*App)) (err 
 	appCtx := Context{
 		Context:  ctx,
 		App:      a,
-		Required: a.requiredApps,
+		required: a.requiredApps,
 	}
 	if initializer, ok := a.instance.(Initializer); ok {
 		if err := initializer.Init(appCtx); err != nil {
