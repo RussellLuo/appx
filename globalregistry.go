@@ -40,13 +40,3 @@ func Start(ctx context.Context) error {
 func Stop(ctx context.Context) {
 	globalRegistry.Stop(ctx)
 }
-
-// DEPRECATED
-// Config is defined here for backwards compatibility.
-type Config = Options
-
-// DEPRECATED
-// SetConfig sets the configuration of globalRegistry.
-func SetConfig(c Config) {
-	globalRegistry.SetOptions(&c)
-}
