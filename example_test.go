@@ -56,7 +56,7 @@ func (b *B) Init(ctx appx.Context) error {
 	b.Name = ctx.App.Name
 	b.Value = "value_b"
 
-	a := ctx.MustLoad("a2").(*A)
+	a := ctx.MustLoad("a").(*A)
 	fmt.Printf("Initializing app %q, which requires app %q, whose value is %q\n", b.Name, a.Name, a.Value)
 	return nil
 }
@@ -80,13 +80,13 @@ func Example() {
 	r := appx.NewRegistry()
 
 	// Typically located in `func init()` of package a.
-	r.MustRegister(appx.New("a2", new(A)))
+	r.MustRegister(appx.New("a", new(A)))
 
 	// Typically located in `func init()` of package b.
-	r.MustRegister(appx.New("b2", new(B)).Require("a2"))
+	r.MustRegister(appx.New("b", new(B)).Require("a"))
 
 	// Typically located in `func main()` of package main.
-	if err := r.Install(context.Background(), "b2"); err != nil {
+	if err := r.Install(context.Background(), "b"); err != nil {
 		fmt.Printf("err: %v\n", err)
 		return
 	}
@@ -109,13 +109,13 @@ func Example() {
 	r.Stop(stopCtx)
 
 	// Output:
-	// Initializing app "a2", which requires 0 app
-	// Initializing app "b2", which requires app "a2", whose value is "value_a"
-	// Starting app "a2"
-	// Starting app "b2"
+	// Initializing app "a", which requires 0 app
+	// Initializing app "b", which requires app "a", whose value is "value_a"
+	// Starting app "a"
+	// Starting app "b"
 	// Everything is running
-	// Stopping app "b2"
-	// Stopping app "a2"
-	// Cleaning up app "b2"
-	// Cleaning up app "a2"
+	// Stopping app "b"
+	// Stopping app "a"
+	// Cleaning up app "b"
+	// Cleaning up app "a"
 }
