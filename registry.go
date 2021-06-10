@@ -127,7 +127,7 @@ func (r *Registry) getApp(name string) (*App, error) {
 func (r *Registry) Run() (os.Signal, error) {
 	startCtx, cancel := context.WithTimeout(context.Background(), r.options.StartTimeout)
 	defer cancel()
-	if err := Start(startCtx); err != nil {
+	if err := r.Start(startCtx); err != nil {
 		return nil, err
 	}
 
