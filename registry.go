@@ -171,6 +171,20 @@ func (r *Registry) stop(ctx context.Context) error {
 	return nil
 }
 
+// Graph generates the dependency graph for all installed applications in map form.
+//
+// The format of the returned map is as below:
+//
+//     appName -> [dependencyAppName1, dependencyAppName2, ...]
+//
+func (r *Registry) Graph() map[string][]string {
+	graph := make(map[string][]string)
+	for _, app := range r.installed {
+		graph[app.Name] = app.Requirements()
+	}
+	return graph
+}
+
 func withTimeout(ctx context.Context, f func(context.Context) error) error {
 	c := make(chan error, 1)
 	go func() { c <- f(ctx) }()

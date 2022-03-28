@@ -198,6 +198,15 @@ func (a *App) Uninstall() (err error) {
 	return nil
 }
 
+// Requirements returns the names of the applications that the current application requires.
+func (a *App) Requirements() []string {
+	var names []string
+	for _, app := range a.requiredApps {
+		names = append(names, app.Name)
+	}
+	return names
+}
+
 // prepareRequiredApps sets the field a.requiredApps of app if it's not set.
 func (a *App) prepareRequiredApps() error {
 	if len(a.requiredNames) == len(a.requiredApps) {

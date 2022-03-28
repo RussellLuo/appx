@@ -40,3 +40,7 @@ func Start(ctx context.Context) error {
 func Stop(ctx context.Context) {
 	globalRegistry.Stop(ctx)
 }
+
+func Graph() map[string][]string {
+	return globalRegistry.Graph()
+}
