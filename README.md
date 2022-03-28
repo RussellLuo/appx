@@ -15,17 +15,17 @@ $ go get -u github.com/RussellLuo/appx
 Simple Application:
 
 ```
-            +-------+     +-------+
-(BEGIN) --> | Init  | --> | Clean | --> (END)
-            +-------+     +-------+
+            +-------+                   +-------+
+(BEGIN) --> | Init  | --> (WORKING) --> | Clean | --> (END)
+            +-------+                   +-------+
 ```
 
 Runnable Application:
 
 ```
-            +-------+     +-------+     +-------+     +-------+
-(BEGIN) --> | Init  | --> | Start | --> | Stop  | --> | Clean | --> (END)
-            +-------+     +-------+     +-------+     +-------+
+            +-------+     +-------+                   +-------+     +-------+
+(BEGIN) --> | Init  | --> | Start | --> (RUNNING) --> | Stop  | --> | Clean | --> (END)
+            +-------+     +-------+                   +-------+     +-------+
 ```
 
 ## Examples

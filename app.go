@@ -100,7 +100,7 @@ type App struct {
 
 // New creates an application with the given name and the user-defined instance.
 func New(name string, instance interface{}) *App {
-	a := &App{
+	return &App{
 		Name:          name,
 		requiredNames: make(map[string]bool),
 		requiredApps:  make(map[string]*App),
@@ -109,7 +109,6 @@ func New(name string, instance interface{}) *App {
 		},
 		instance: instance,
 	}
-	return a
 }
 
 // Require sets the names of the applications that the current application requires.

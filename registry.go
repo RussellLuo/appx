@@ -152,13 +152,13 @@ func (r *Registry) Start(ctx context.Context) error {
 // It will keep going after encountering errors, and all errors will be passed
 // to the handler specified by ErrorHandler.
 func (r *Registry) Stop(ctx context.Context) {
-	withTimeout(ctx, r.stop) // nolint:errcheck
+	_ = withTimeout(ctx, r.stop)
 }
 
 func (r *Registry) start(ctx context.Context) error {
 	if err := r.lifecycle.Start(ctx); err != nil {
 		// Start failed, roll back.
-		r.stop(ctx) // nolint:errcheck
+		_ = r.stop(ctx)
 		return err
 	}
 	return nil
@@ -183,7 +183,7 @@ func withTimeout(ctx context.Context, f func(context.Context) error) error {
 	}
 }
 
-// options is a set of optional configurations for a registry.
+// Options is a set of optional configurations for a registry.
 type Options struct {
 	// The timeout of application startup. Defaults to 15s.
 	StartTimeout time.Duration
