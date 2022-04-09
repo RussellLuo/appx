@@ -33,13 +33,19 @@ type StartStopper interface {
 	Stop(ctx context.Context) error
 }
 
-type Instancer interface {
-	Instance() interface{}
-}
-
 type Validator interface {
+	// Validate verifies that the configuration of an application is valid.
 	Validate() error
 }
+
+type Instancer interface {
+	Instance() Instance
+}
+
+// Instance is a user-defined application instance.
+type Instance interface{}
+
+type Middleware func(Instance) Instance
 
 // Context is a set of context parameters used to initialize the
 // associated application.
@@ -52,18 +58,15 @@ type Context struct {
 
 // Load loads the application instance specified by name. It will return
 // an error if the given name does not refer to any required application.
-func (ctx Context) Load(name string) (interface{}, error) {
+func (ctx Context) Load(name string) (Instance, error) {
 	if app, ok := ctx.required[name]; ok {
-		if instancer, ok := app.instance.(Instancer); ok {
-			return instancer.Instance(), nil
-		}
-		return app.instance, nil
+		return app.Instance.Instance(), nil
 	}
 	return nil, fmt.Errorf("app %q is not required", name)
 }
 
 // MustLoad is like Load but panics if there is an error.
-func (ctx Context) MustLoad(name string) interface{} {
+func (ctx Context) MustLoad(name string) Instance {
 	instance, err := ctx.Load(name)
 	if err != nil {
 		panic(err)
@@ -81,10 +84,67 @@ func (ctx Context) Config() interface{} {
 	return ctx.App.getConfigFunc(ctx.App.Name)
 }
 
+// Standard is an application instance that implements all standard interfaces,
+// which include Initializer, Cleaner, StartStopper, Validator and Instancer.
+type Standard struct {
+	instance Instance
+}
+
+// Standardize converts instance to a standard application instance, if it is
+// not a standard one.
+func Standardize(instance Instance) Standard {
+	if s, ok := instance.(Standard); ok {
+		return s
+	}
+	return Standard{instance: instance}
+}
+
+func (s Standard) Init(ctx Context) error {
+	if initializer, ok := s.instance.(Initializer); ok {
+		return initializer.Init(ctx)
+	}
+	return nil
+}
+
+func (s Standard) Clean() error {
+	if cleaner, ok := s.instance.(Cleaner); ok {
+		return cleaner.Clean()
+	}
+	return nil
+}
+
+func (s Standard) Start(ctx context.Context) error {
+	if startStopper, ok := s.instance.(StartStopper); ok {
+		return startStopper.Start(ctx)
+	}
+	return nil
+}
+
+func (s Standard) Stop(ctx context.Context) error {
+	if startStopper, ok := s.instance.(StartStopper); ok {
+		return startStopper.Stop(ctx)
+	}
+	return nil
+}
+
+func (s Standard) Validate() error {
+	if validator, ok := s.instance.(Validator); ok {
+		return validator.Validate()
+	}
+	return nil
+}
+
+func (s Standard) Instance() Instance {
+	if instancer, ok := s.instance.(Instancer); ok {
+		return instancer.Instance()
+	}
+	return s.instance
+}
+
 // App is a modular application.
 type App struct {
-	Name     string      // The application name.
-	instance interface{} // The user-defined application instance.
+	Name     string   // The application name.
+	Instance Standard // The user-defined application instance, which has been standardized.
 
 	requiredNames map[string]bool
 	requiredApps  map[string]*App
@@ -99,15 +159,15 @@ type App struct {
 }
 
 // New creates an application with the given name and the user-defined instance.
-func New(name string, instance interface{}) *App {
+func New(name string, instance Instance) *App {
 	return &App{
 		Name:          name,
+		Instance:      Standardize(instance),
 		requiredNames: make(map[string]bool),
 		requiredApps:  make(map[string]*App),
 		getAppFunc: func(name string) (*App, error) {
 			return nil, fmt.Errorf("app %q is not registered", name)
 		},
-		instance: instance,
 	}
 }
 
@@ -144,32 +204,25 @@ func (a *App) Install(ctx context.Context, lc Lifecycle, after func(*App)) (err 
 	//////////////////////////////////
 	// Finally install the app itself.
 
-	// 1. If a.instance implements Initializer, initialize the app instance.
+	// 1. Initialize the application instance.
 	appCtx := Context{
 		Context:  ctx,
 		App:      a,
 		required: a.requiredApps,
 	}
-	if initializer, ok := a.instance.(Initializer); ok {
-		if err := initializer.Init(appCtx); err != nil {
-			return err
-		}
+	if err := a.Instance.Init(appCtx); err != nil {
+		return err
 	}
 
-	// 2. If a.instance implements StartStopper, set the appropriate
-	// lifecycle hooks.
-	if startStopper, ok := a.instance.(StartStopper); ok {
-		lc.Append(Hook{
-			OnStart: startStopper.Start,
-			OnStop:  startStopper.Stop,
-		})
-	}
+	// 2. Set the appropriate lifecycle hooks.
+	lc.Append(Hook{
+		OnStart: a.Instance.Start,
+		OnStop:  a.Instance.Stop,
+	})
 
-	// 3. If a.instance implements Validator, trigger the validation.
-	if validator, ok := a.instance.(Validator); ok {
-		if err := validator.Validate(); err != nil {
-			return err
-		}
+	// 3. Trigger the validation.
+	if err := a.Instance.Validate(); err != nil {
+		return err
 	}
 
 	if after != nil {
@@ -187,11 +240,9 @@ func (a *App) Uninstall() (err error) {
 		return nil
 	}
 
-	// If a.instance implements Cleaner, cleanup the app instance.
-	if cleaner, ok := a.instance.(Cleaner); ok {
-		if err = cleaner.Clean(); err != nil {
-			return err
-		}
+	// Cleanup the application instance.
+	if err = a.Instance.Clean(); err != nil {
+		return err
 	}
 
 	a.state = stateUninstalled
