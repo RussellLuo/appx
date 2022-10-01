@@ -42,10 +42,18 @@ type Instancer interface {
 	Instance() Instance
 }
 
+// Standard represents a complete interface, which includes
+// Initializer, Cleaner, StartStopper, Validator and Instancer.
+type Standard interface {
+	Initializer
+	Cleaner
+	StartStopper
+	Validator
+	Instancer
+}
+
 // Instance is a user-defined application instance.
 type Instance interface{}
-
-type Middleware func(Instance) Instance
 
 // Context is a set of context parameters used to initialize the
 // associated application.
@@ -82,63 +90,6 @@ func (ctx Context) MustLoad(name string) Instance {
 // been set by calling Registry.SetOptions().
 func (ctx Context) Config() interface{} {
 	return ctx.App.getConfigFunc(ctx.App.Name)
-}
-
-// Standard is an application instance that implements all standard interfaces,
-// which include Initializer, Cleaner, StartStopper, Validator and Instancer.
-type Standard struct {
-	instance Instance
-}
-
-// Standardize converts instance to a standard application instance, if it is
-// not a standard one.
-func Standardize(instance Instance) Standard {
-	if s, ok := instance.(Standard); ok {
-		return s
-	}
-	return Standard{instance: instance}
-}
-
-func (s Standard) Init(ctx Context) error {
-	if initializer, ok := s.instance.(Initializer); ok {
-		return initializer.Init(ctx)
-	}
-	return nil
-}
-
-func (s Standard) Clean() error {
-	if cleaner, ok := s.instance.(Cleaner); ok {
-		return cleaner.Clean()
-	}
-	return nil
-}
-
-func (s Standard) Start(ctx context.Context) error {
-	if startStopper, ok := s.instance.(StartStopper); ok {
-		return startStopper.Start(ctx)
-	}
-	return nil
-}
-
-func (s Standard) Stop(ctx context.Context) error {
-	if startStopper, ok := s.instance.(StartStopper); ok {
-		return startStopper.Stop(ctx)
-	}
-	return nil
-}
-
-func (s Standard) Validate() error {
-	if validator, ok := s.instance.(Validator); ok {
-		return validator.Validate()
-	}
-	return nil
-}
-
-func (s Standard) Instance() Instance {
-	if instancer, ok := s.instance.(Instancer); ok {
-		return instancer.Instance()
-	}
-	return s.instance
 }
 
 // App is a modular application.
@@ -273,4 +224,60 @@ func (a *App) prepareRequiredApps() error {
 	}
 
 	return nil
+}
+
+// standard is an application instance that implements the Standard interface.
+type standard struct {
+	instance Instance
+}
+
+// Standardize converts instance to a standard application instance, if it is
+// not a standard one.
+func Standardize(instance Instance) Standard {
+	if s, ok := instance.(Standard); ok {
+		return s
+	}
+	return &standard{instance: instance}
+}
+
+func (s *standard) Init(ctx Context) error {
+	if initializer, ok := s.instance.(Initializer); ok {
+		return initializer.Init(ctx)
+	}
+	return nil
+}
+
+func (s *standard) Clean() error {
+	if cleaner, ok := s.instance.(Cleaner); ok {
+		return cleaner.Clean()
+	}
+	return nil
+}
+
+func (s *standard) Start(ctx context.Context) error {
+	if startStopper, ok := s.instance.(StartStopper); ok {
+		return startStopper.Start(ctx)
+	}
+	return nil
+}
+
+func (s *standard) Stop(ctx context.Context) error {
+	if startStopper, ok := s.instance.(StartStopper); ok {
+		return startStopper.Stop(ctx)
+	}
+	return nil
+}
+
+func (s *standard) Validate() error {
+	if validator, ok := s.instance.(Validator); ok {
+		return validator.Validate()
+	}
+	return nil
+}
+
+func (s *standard) Instance() Instance {
+	if instancer, ok := s.instance.(Instancer); ok {
+		return instancer.Instance()
+	}
+	return s.instance
 }
