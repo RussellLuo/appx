@@ -9,6 +9,10 @@ var (
 	globalRegistry = NewRegistry()
 )
 
+func Use(middlewares ...func(Standard) Standard) {
+	globalRegistry.Use(middlewares...)
+}
+
 func Register(app *App) error {
 	return globalRegistry.Register(app)
 }

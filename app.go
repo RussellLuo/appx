@@ -97,6 +97,9 @@ type App struct {
 	Name     string   // The application name.
 	Instance Standard // The user-defined application instance, which has been standardized.
 
+	// The middleware stack.
+	middlewares []func(Standard) Standard
+
 	requiredNames map[string]bool
 	requiredApps  map[string]*App
 
@@ -122,6 +125,18 @@ func New(name string, instance Instance) *App {
 	}
 }
 
+// Use appends one or more middlewares to the App middleware stack.
+//
+// The middleware stack will execute in the order they are passed, to
+// provide additional behaviors for the next App instance.
+func (a *App) Use(middlewares ...func(Standard) Standard) *App {
+	if a.state > 0 {
+		panic("appx: all app-level middlewares must be defined prior to installation")
+	}
+	a.middlewares = append(a.middlewares, middlewares...)
+	return a
+}
+
 // Require sets the names of the applications that the current application requires.
 func (a *App) Require(names ...string) *App {
 	for _, name := range names {
@@ -141,6 +156,9 @@ func (a *App) Install(ctx context.Context, lc Lifecycle, after func(*App)) (err 
 
 	// Mark the state as `installing`.
 	a.state = stateInstalling
+
+	// Build the final application instance.
+	a.chain()
 
 	// Install all the required applications.
 	if err := a.prepareRequiredApps(); err != nil {
@@ -207,6 +225,19 @@ func (a *App) Requirements() []string {
 		names = append(names, app.Name)
 	}
 	return names
+}
+
+// chain wraps the original application instance with the middleware stack.
+func (a *App) chain() {
+	if len(a.middlewares) == 0 {
+		return
+	}
+
+	inst := a.middlewares[len(a.middlewares)-1](a.Instance)
+	for i := len(a.middlewares) - 2; i >= 0; i-- {
+		inst = a.middlewares[i](inst)
+	}
+	a.Instance = inst
 }
 
 // prepareRequiredApps sets the field a.requiredApps of app if it's not set.

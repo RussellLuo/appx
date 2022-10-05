@@ -27,25 +27,14 @@ type A struct {
 func (a *A) Init(ctx appx.Context) error {
 	a.Name = ctx.App.Name
 	a.Value = "value_a"
-
-	fmt.Printf("Initializing app %q, which requires no app\n", a.Name)
 	return nil
 }
 
-func (a *A) Clean() error {
-	fmt.Printf("Cleaning up app %q\n", a.Name)
-	return nil
-}
+func (a *A) Clean() error { return nil }
 
-func (a *A) Start(ctx context.Context) error {
-	fmt.Printf("Starting app %q\n", a.Name)
-	return nil
-}
+func (a *A) Start(ctx context.Context) error { return nil }
 
-func (a *A) Stop(ctx context.Context) error {
-	fmt.Printf("Stopping app %q\n", a.Name)
-	return nil
-}
+func (a *A) Stop(ctx context.Context) error { return nil }
 
 type B struct {
 	Name  string
@@ -57,27 +46,49 @@ func (b *B) Init(ctx appx.Context) error {
 	b.Value = "value_b"
 
 	a := ctx.MustLoad("a").(*A)
-	fmt.Printf("Initializing app %q, which requires app %q, whose value is %q\n", b.Name, a.Name, a.Value)
+	fmt.Printf("Loaded required app %q (value: %q)\n", a.Name, a.Value)
 	return nil
 }
 
-func (b *B) Clean() error {
-	fmt.Printf("Cleaning up app %q\n", b.Name)
-	return nil
+func (b *B) Clean() error { return nil }
+
+func (b *B) Start(ctx context.Context) error { return nil }
+
+func (b *B) Stop(ctx context.Context) error { return nil }
+
+func Logger(next appx.Standard) appx.Standard {
+	return &logger{Standard: next}
 }
 
-func (b *B) Start(ctx context.Context) error {
-	fmt.Printf("Starting app %q\n", b.Name)
-	return nil
+type logger struct {
+	appx.Standard
+	name string
 }
 
-func (b *B) Stop(ctx context.Context) error {
-	fmt.Printf("Stopping app %q\n", b.Name)
-	return nil
+func (l *logger) Init(ctx appx.Context) error {
+	l.name = ctx.App.Name
+	fmt.Printf("Initializing app %q, which requires %d app(s)\n", l.name, len(ctx.App.Requirements()))
+	return l.Standard.Init(ctx)
+}
+
+func (l *logger) Clean() error {
+	fmt.Printf("Cleaning up app %q\n", l.name)
+	return l.Standard.Clean()
+}
+
+func (l *logger) Start(ctx context.Context) error {
+	fmt.Printf("Starting app %q\n", l.name)
+	return l.Standard.Start(ctx)
+}
+
+func (l *logger) Stop(ctx context.Context) error {
+	fmt.Printf("Stopping app %q\n", l.name)
+	return l.Standard.Stop(ctx)
 }
 
 func Example() {
 	r := appx.NewRegistry()
+	r.Use(Logger)
 
 	// Typically located in `func init()` of package a.
 	r.MustRegister(appx.New("a", new(A)))
@@ -109,8 +120,9 @@ func Example() {
 	r.Stop(stopCtx)
 
 	// Output:
-	// Initializing app "a", which requires no app
-	// Initializing app "b", which requires app "a", whose value is "value_a"
+	// Initializing app "a", which requires 0 app(s)
+	// Initializing app "b", which requires 1 app(s)
+	// Loaded required app "a" (value: "value_a")
 	// Starting app "a"
 	// Starting app "b"
 	// Everything is running

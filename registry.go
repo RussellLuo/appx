@@ -10,6 +10,9 @@ import (
 )
 
 type Registry struct {
+	// The common middleware stack that will be applied to all registered applications.
+	middlewares []func(Standard) Standard
+
 	// registered holds all the registered applications.
 	registered map[string]*App
 
@@ -31,6 +34,15 @@ func NewRegistry() *Registry {
 	}
 }
 
+// Use appends one or more middlewares to the common middleware stack, which
+// will be applied to all registered applications.
+func (r *Registry) Use(middlewares ...func(Standard) Standard) {
+	if len(r.registered) > 0 {
+		panic("appx: all common middlewares must be defined prior to registration")
+	}
+	r.middlewares = append(r.middlewares, middlewares...)
+}
+
 // Register registers the application app into the registry.
 func (r *Registry) Register(app *App) error {
 	if app == nil {
@@ -43,6 +55,11 @@ func (r *Registry) Register(app *App) error {
 
 	if _, ok := r.registered[app.Name]; ok {
 		return fmt.Errorf("app %q is already registered", app.Name)
+	}
+
+	// Insert the common middlewares, if any, before app's middlewares.
+	if len(r.middlewares) > 0 {
+		app.middlewares = append(r.middlewares, app.middlewares...)
 	}
 
 	r.registered[app.Name] = app
@@ -175,8 +192,7 @@ func (r *Registry) stop(ctx context.Context) error {
 //
 // The format of the returned map is as below:
 //
-//     appName -> [dependencyAppName1, dependencyAppName2, ...]
-//
+//	appName -> [dependencyAppName1, dependencyAppName2, ...]
 func (r *Registry) Graph() map[string][]string {
 	graph := make(map[string][]string)
 	for _, app := range r.installed {
