@@ -37,8 +37,8 @@ func NewRegistry() *Registry {
 // Use appends one or more middlewares to the common middleware stack, which
 // will be applied to all registered applications.
 func (r *Registry) Use(middlewares ...func(Standard) Standard) {
-	if len(r.registered) > 0 {
-		panic("appx: all common middlewares must be defined prior to registration")
+	if len(r.installed) > 0 {
+		panic("appx: all middlewares must be defined prior to installation")
 	}
 	r.middlewares = append(r.middlewares, middlewares...)
 }
@@ -55,11 +55,6 @@ func (r *Registry) Register(app *App) error {
 
 	if _, ok := r.registered[app.Name]; ok {
 		return fmt.Errorf("app %q is already registered", app.Name)
-	}
-
-	// Insert the common middlewares, if any, before app's middlewares.
-	if len(r.middlewares) > 0 {
-		app.middlewares = append(r.middlewares, app.middlewares...)
 	}
 
 	r.registered[app.Name] = app
@@ -85,13 +80,19 @@ func (r *Registry) SetOptions(opts *Options) {
 //
 // Note that applications will be installed in dependency order.
 func (r *Registry) Install(ctx context.Context, names ...string) error {
+	before := func(app *App) {
+		// Insert the common middlewares, if any, before app's middlewares.
+		if len(r.middlewares) > 0 {
+			app.middlewares = append(r.middlewares, app.middlewares...)
+		}
+	}
 	after := func(app *App) {
 		r.installed = append(r.installed, app)
 	}
 
 	if len(names) == 0 {
 		for _, app := range r.registered {
-			if err := app.Install(ctx, r.lifecycle, after); err != nil {
+			if err := app.Install(ctx, r.lifecycle, before, after); err != nil {
 				// Install failed, roll back.
 				Uninstall()
 				return err
@@ -106,7 +107,7 @@ func (r *Registry) Install(ctx context.Context, names ...string) error {
 			Uninstall()
 			return err
 		}
-		if err := app.Install(ctx, r.lifecycle, after); err != nil {
+		if err := app.Install(ctx, r.lifecycle, before, after); err != nil {
 			// Install failed, roll back.
 			Uninstall()
 			return err

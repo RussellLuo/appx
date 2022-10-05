@@ -131,7 +131,7 @@ func New(name string, instance Instance) *App {
 // provide additional behaviors for the next App instance.
 func (a *App) Use(middlewares ...func(Standard) Standard) *App {
 	if a.state > 0 {
-		panic("appx: all app-level middlewares must be defined prior to installation")
+		panic("appx: all middlewares must be defined prior to installation")
 	}
 	a.middlewares = append(a.middlewares, middlewares...)
 	return a
@@ -146,7 +146,7 @@ func (a *App) Require(names ...string) *App {
 }
 
 // Install does the initialization work for the current application.
-func (a *App) Install(ctx context.Context, lc Lifecycle, after func(*App)) (err error) {
+func (a *App) Install(ctx context.Context, lc Lifecycle, before, after func(*App)) (err error) {
 	switch a.state {
 	case stateInstalled:
 		return nil // Do nothing since the application has already been installed.
@@ -157,6 +157,11 @@ func (a *App) Install(ctx context.Context, lc Lifecycle, after func(*App)) (err 
 	// Mark the state as `installing`.
 	a.state = stateInstalling
 
+	// Call the hook function, if any, before installation.
+	if before != nil {
+		before(a)
+	}
+
 	// Build the final application instance.
 	a.chain()
 
@@ -165,7 +170,7 @@ func (a *App) Install(ctx context.Context, lc Lifecycle, after func(*App)) (err 
 		return err
 	}
 	for _, app := range a.requiredApps {
-		if err = app.Install(ctx, lc, after); err != nil {
+		if err = app.Install(ctx, lc, before, after); err != nil {
 			return err
 		}
 	}
@@ -194,8 +199,8 @@ func (a *App) Install(ctx context.Context, lc Lifecycle, after func(*App)) (err 
 		return err
 	}
 
+	// Call the hook function, if any, after installation.
 	if after != nil {
-		// Call the hook function after installed, if any.
 		after(a)
 	}
 

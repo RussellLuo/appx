@@ -88,7 +88,6 @@ func (l *logger) Stop(ctx context.Context) error {
 
 func Example() {
 	r := appx.NewRegistry()
-	r.Use(Logger)
 
 	// Typically located in `func init()` of package a.
 	r.MustRegister(appx.New("a", new(A)))
@@ -97,7 +96,9 @@ func Example() {
 	r.MustRegister(appx.New("b", new(B)).Require("a"))
 
 	// Typically located in `func main()` of package main.
-	if err := r.Install(context.Background(), "b"); err != nil {
+	r.Use(Logger)
+
+	if err := r.Install(context.Background()); err != nil {
 		fmt.Printf("err: %v\n", err)
 		return
 	}
