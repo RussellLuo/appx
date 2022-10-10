@@ -9,10 +9,6 @@ var (
 	globalRegistry = NewRegistry()
 )
 
-func Use(middlewares ...func(Standard) Standard) {
-	globalRegistry.Use(middlewares...)
-}
-
 func Register(app *App) error {
 	return globalRegistry.Register(app)
 }
@@ -23,6 +19,10 @@ func MustRegister(app *App) {
 
 func SetOptions(opts *Options) {
 	globalRegistry.SetOptions(opts)
+}
+
+func Use(middlewares ...func(Standard) Standard) {
+	globalRegistry.Use(middlewares...)
 }
 
 func Install(ctx context.Context, names ...string) error {

@@ -34,15 +34,6 @@ func NewRegistry() *Registry {
 	}
 }
 
-// Use appends one or more middlewares to the common middleware stack, which
-// will be applied to all registered applications.
-func (r *Registry) Use(middlewares ...func(Standard) Standard) {
-	if len(r.installed) > 0 {
-		panic("appx: all middlewares must be defined prior to installation")
-	}
-	r.middlewares = append(r.middlewares, middlewares...)
-}
-
 // Register registers the application app into the registry.
 func (r *Registry) Register(app *App) error {
 	if app == nil {
@@ -75,15 +66,28 @@ func (r *Registry) SetOptions(opts *Options) {
 	r.options = opts.init()
 }
 
+// Use appends one or more middlewares to the common middleware stack, which
+// will be applied to all registered applications.
+func (r *Registry) Use(middlewares ...func(Standard) Standard) {
+	if len(r.installed) > 0 {
+		panic("appx: all middlewares must be defined prior to installation")
+	}
+	r.middlewares = append(r.middlewares, middlewares...)
+}
+
 // Install installs the applications specified by names, with the given ctx.
 // If no name is specified, all registered applications will be installed.
 //
 // Note that applications will be installed in dependency order.
 func (r *Registry) Install(ctx context.Context, names ...string) error {
 	before := func(app *App) {
-		// Insert the common middlewares, if any, before app's middlewares.
+		// Insert common middlewares, if any, before app's middlewares.
 		if len(r.middlewares) > 0 {
-			app.middlewares = append(r.middlewares, app.middlewares...)
+			mws := make([]func(Standard) Standard, len(r.middlewares))
+			copy(mws, r.middlewares)
+			mws = append(mws, app.middlewares...)
+
+			app.middlewares = mws
 		}
 	}
 	after := func(app *App) {
