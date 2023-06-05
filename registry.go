@@ -99,7 +99,7 @@ func (r *Registry) Install(ctx context.Context, names ...string) error {
 			if err := app.Install(ctx, r.lifecycle, before, after); err != nil {
 				// Install failed, roll back.
 				Uninstall()
-				return err
+				return fmt.Errorf("install failed for app %q, err: %s", app.Name, err)
 			}
 		}
 	}
@@ -109,12 +109,12 @@ func (r *Registry) Install(ctx context.Context, names ...string) error {
 		if err != nil {
 			// Install failed, roll back.
 			Uninstall()
-			return err
+			return fmt.Errorf("install failed for app %q, err: %s", app.Name, err)
 		}
 		if err := app.Install(ctx, r.lifecycle, before, after); err != nil {
 			// Install failed, roll back.
 			Uninstall()
-			return err
+			return fmt.Errorf("install failed for app %q, err: %s", app.Name, err)
 		}
 	}
 
