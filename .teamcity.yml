@@ -1,0 +1,8 @@
+name: Appx
+jobs:
+  Job1:
+    name: Job 1
+    steps:
+      - type: script
+        script-content: echo 'Success'
+    runs-on: Linux-Medium
